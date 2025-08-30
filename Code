@@ -1,0 +1,83 @@
+from openai import OpenAI
+import csv
+restaurant_names = []
+goog_maps = []
+with open("reviews.csv", "r", encoding="utf-8") as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        goog_maps.append({"business_name": row["business_name"], "author_name": row["author_name"], "text": row["text"], 
+                                    "photo": row["photo"], "rating": row["rating"], "rating_category": row["rating_category"]})
+for review in goog_maps:
+    if review["business_name"] not in restaurant_names:
+        restaurant_names.append(review["business_name"])
+
+
+def main():
+    locations_nearby = ["Pizza Fellas", "Cafe Inn", "Dan Lao", "Imam Cagdas", "Shiok Burger"]
+    filtered_nearby = nearby(locations_nearby)
+    final = rank_and_sort(filtered_nearby)
+    for restaurant in final:
+        print(f"{list(final.keys()).index(restaurant) + 1}. {restaurant}: {final[restaurant]}")
+
+
+#This function ranks the top rated nearby locations from 1 to 10 based on average star rating
+def rank_and_sort(locations):
+    top_10 = {}
+    for restaurant in locations:
+        rating = star_rating(restaurant)
+        top_10.update({restaurant: rating})
+    ranked = sorted(top_10.items(), key=lambda item: item[1], reverse=True)
+    return dict(ranked)
+        
+
+#This function takes in a list of locations near the address provided and returns a list of locations that correspond to the given dataset
+def nearby(location):
+    if not isinstance(location, list):
+        raise TypeError("list expected")
+    nearby_list = []
+    for restaurant in restaurant_names:
+        if restaurant in location:
+            nearby_list.append(restaurant)
+    return nearby_list
+
+
+#This function takes in the name of a restaurant and returns the average star rating based on the given dataset
+def star_rating(restaurant):
+    counter = 0
+    sum = 0
+    for review in goog_maps:
+        if review["business_name"] == restaurant:
+            counter += 1
+            sum += int(review["rating"])
+    return round(sum / counter, 2)
+
+
+#This function takes in a prompt as input, runs it through chatGPT and returns chatGPT's reply
+def chatgpt(prompt):
+    client = OpenAI(
+        api_key = ""
+    )
+    response = client.responses.create(
+        model="gpt-4o",
+        input=prompt
+    )
+    return response.output_text
+
+
+#This function filters out bot reviews
+def filter(review_list):
+    if not isinstance(review_list, list):
+        raise TypeError("review_list not a list")
+    for review in review_list:
+        if review == "":
+            review_list.remove(review)
+            continue
+        prompt = f"Determine if this review was written by a robot: {review}. Reply with a yes or no."
+        reply = chatgpt(prompt).lower()
+        if "yes" in reply:
+            review_list.remove(review)
+    return review_list
+
+
+
+main()
